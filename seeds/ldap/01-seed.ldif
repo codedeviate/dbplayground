@@ -1,0 +1,39 @@
+# dbplayground test directory entries under dc=example,dc=org
+
+dn: ou=people,dc=example,dc=org
+objectClass: organizationalUnit
+ou: people
+
+dn: ou=groups,dc=example,dc=org
+objectClass: organizationalUnit
+ou: groups
+
+dn: uid=alice,ou=people,dc=example,dc=org
+objectClass: inetOrgPerson
+objectClass: posixAccount
+uid: alice
+cn: Alice Andersson
+sn: Andersson
+mail: alice@example.com
+uidNumber: 10001
+gidNumber: 10001
+homeDirectory: /home/alice
+userPassword: alicepw
+
+dn: uid=bob,ou=people,dc=example,dc=org
+objectClass: inetOrgPerson
+objectClass: posixAccount
+uid: bob
+cn: Bob Bauer
+sn: Bauer
+mail: bob@example.com
+uidNumber: 10002
+gidNumber: 10002
+homeDirectory: /home/bob
+userPassword: bobpw
+
+dn: cn=testers,ou=groups,dc=example,dc=org
+objectClass: groupOfNames
+cn: testers
+member: uid=alice,ou=people,dc=example,dc=org
+member: uid=bob,ou=people,dc=example,dc=org
