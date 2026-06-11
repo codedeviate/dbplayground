@@ -1,0 +1,7 @@
+SET demo:greeting "hello from dbplayground"
+SET product:1 "Widget"
+SET product:2 "Gadget"
+HSET customer:1 name "Alice Andersson" email "alice@example.com" country "SE"
+HSET customer:2 name "Bob Bauer" email "bob@example.com" country "DE"
+DEL recent_orders
+RPUSH recent_orders 1 2 3 4
