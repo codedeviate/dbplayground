@@ -1,0 +1,141 @@
+# dbplayground — multi-engine database test fleet.
+# Default engines start with `docker compose up`. OpenLDAP is behind the
+# "ldap" profile. All host ports/credentials come from .env (see .env.example).
+# Oracle is intentionally NOT wired here — see the commented block at the end
+# and DOCKERHUB.md / README for the rationale.
+
+name: dbplayground
+
+services:
+  postgres:
+    image: postgres:17-alpine
+    container_name: dbp-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${DB_NAME}
+      POSTGRES_USER: ${DB_USER}
+      POSTGRES_PASSWORD: ${DB_PASSWORD}
+    ports:
+      - "${PG_PORT}:5432"
+    volumes:
+      - ./seeds/postgres:/docker-entrypoint-initdb.d:ro
+      - pg_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USER} -d ${DB_NAME}"]
+      interval: 5s
+      timeout: 5s
+      retries: 15
+
+  mysql:
+    image: mysql:8.4
+    container_name: dbp-mysql
+    restart: unless-stopped
+    environment:
+      MYSQL_DATABASE: ${DB_NAME}
+      MYSQL_USER: ${DB_USER}
+      MYSQL_PASSWORD: ${DB_PASSWORD}
+      MYSQL_ROOT_PASSWORD: ${DB_ROOT_PASSWORD}
+    ports:
+      - "${MYSQL_PORT}:3306"
+    volumes:
+      - ./seeds/mysql:/docker-entrypoint-initdb.d:ro
+      - mysql_data:/var/lib/mysql
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-uroot", "-p${DB_ROOT_PASSWORD}"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
+  mariadb:
+    image: mariadb:11
+    container_name: dbp-mariadb
+    restart: unless-stopped
+    environment:
+      MARIADB_DATABASE: ${DB_NAME}
+      MARIADB_USER: ${DB_USER}
+      MARIADB_PASSWORD: ${DB_PASSWORD}
+      MARIADB_ROOT_PASSWORD: ${DB_ROOT_PASSWORD}
+    ports:
+      - "${MARIADB_PORT}:3306"
+    volumes:
+      - ./seeds/mariadb:/docker-entrypoint-initdb.d:ro
+      - mariadb_data:/var/lib/mysql
+    healthcheck:
+      test: ["CMD", "healthcheck.sh", "--connect", "--innodb_initialized"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
+  clickhouse:
+    image: clickhouse/clickhouse-server:24-alpine
+    container_name: dbp-clickhouse
+    restart: unless-stopped
+    environment:
+      CLICKHOUSE_DB: ${CLICKHOUSE_DB}
+      CLICKHOUSE_USER: ${CLICKHOUSE_USER}
+      CLICKHOUSE_PASSWORD: ${CLICKHOUSE_PASSWORD}
+      CLICKHOUSE_DEFAULT_ACCESS_MANAGEMENT: "1"
+    ports:
+      - "${CLICKHOUSE_HTTP_PORT}:8123"
+      - "${CLICKHOUSE_NATIVE_PORT}:9000"
+    ulimits:
+      nofile:
+        soft: 262144
+        hard: 262144
+    volumes:
+      - ./seeds/clickhouse:/docker-entrypoint-initdb.d:ro
+      - clickhouse_data:/var/lib/clickhouse
+    healthcheck:
+      test: ["CMD", "wget", "--spider", "-q", "http://127.0.0.1:8123/ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 15
+
+  openldap:
+    image: osixia/openldap:1.5.0
+    container_name: dbp-openldap
+    profiles: ["ldap"]
+    restart: unless-stopped
+    command: ["--copy-service"]
+    environment:
+      LDAP_ORGANISATION: ${LDAP_ORGANISATION}
+      LDAP_DOMAIN: ${LDAP_DOMAIN}
+      LDAP_ADMIN_PASSWORD: ${LDAP_ADMIN_PASSWORD}
+    ports:
+      - "${LDAP_PORT}:389"
+      - "${LDAPS_PORT}:636"
+    volumes:
+      - ./seeds/ldap:/container/service/slapd/assets/config/bootstrap/ldif/custom:ro
+      - ldap_data:/var/lib/ldap
+      - ldap_config:/etc/ldap/slapd.d
+    healthcheck:
+      test: ["CMD-SHELL", "ldapsearch -x -H ldap://localhost -b dc=example,dc=org -D cn=admin,dc=example,dc=org -w ${LDAP_ADMIN_PASSWORD} >/dev/null 2>&1 || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+# ---------------------------------------------------------------------------
+# Oracle (NOT enabled): Oracle Database Free is free to use but x86_64-only
+# (slow under emulation on Apple Silicon) and multi-GB. To experiment, add a
+# matching ORACLE_PORT to .env and uncomment:
+#
+#   oracle:
+#     image: container-registry.oracle.com/database/free:latest
+#     container_name: dbp-oracle
+#     profiles: ["oracle"]
+#     platform: linux/amd64
+#     environment:
+#       ORACLE_PWD: ${DB_ROOT_PASSWORD}
+#     ports:
+#       - "${ORACLE_PORT}:1521"
+#     volumes:
+#       - oracle_data:/opt/oracle/oradata
+# ---------------------------------------------------------------------------
+
+volumes:
+  pg_data:
+  mysql_data:
+  mariadb_data:
+  clickhouse_data:
+  ldap_data:
+  ldap_config:
