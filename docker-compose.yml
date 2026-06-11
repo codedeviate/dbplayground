@@ -92,6 +92,44 @@ services:
       timeout: 5s
       retries: 15
 
+  redis:
+    image: redis:7-alpine
+    container_name: dbp-redis
+    restart: unless-stopped
+    ports:
+      - "${REDIS_PORT}:6379"
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  # One-shot seeder. Behind the "seed" profile so it is NOT part of the default
+  # `up --wait` (a one-shot that exits never reaches "running", which can hang
+  # --wait). The Makefile runs it explicitly with `docker compose run --rm`.
+  redis-seed:
+    image: redis:7-alpine
+    container_name: dbp-redis-seed
+    profiles: ["seed"]
+    depends_on:
+      redis:
+        condition: service_healthy
+    volumes:
+      - ./seeds/redis:/seed:ro
+    entrypoint: ["sh", "-c", "redis-cli -h redis < /seed/01-seed.redis && echo 'redis seeded'"]
+    restart: "no"
+
+  memcached:
+    image: memcached:1.6-alpine
+    container_name: dbp-memcached
+    restart: unless-stopped
+    ports:
+      - "${MEMCACHED_PORT}:11211"
+    # No healthcheck: memcached is ready immediately and the alpine image lacks
+    # reliable shell tooling for a check; --wait just confirms it is running.
+
   openldap:
     image: osixia/openldap:1.5.0
     container_name: dbp-openldap
@@ -139,6 +177,7 @@ volumes:
   mysql_data:
   mariadb_data:
   clickhouse_data:
+  redis_data:
   ldap_data:
   ldap_config:
   # oracle_data:   # uncomment together with the commented oracle service above
