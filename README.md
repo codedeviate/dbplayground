@@ -77,6 +77,25 @@ ldapsearch -x -H ldap://localhost:13389 -b dc=example,dc=org \
   -D cn=admin,dc=example,dc=org -w adminpw
 ```
 
+### Quick connectivity check (host clients)
+
+After `make up` (or `make up-all`), verify each engine is reachable from the
+host using locally installed clients. Each command should print `4` (the seeded
+order count). The `psql` / `mysql` / `mariadb` / `ldapsearch` clients are
+optional — skip any you don't have installed; the ClickHouse check needs only
+`curl`.
+
+```sh
+psql "postgresql://playground:playground@127.0.0.1:15432/testdb" -tAc "SELECT count(*) FROM orders;"
+mysql   -h127.0.0.1 -P13306 -uplayground -pplayground -N -e "SELECT count(*) FROM testdb.orders;"
+mariadb -h127.0.0.1 -P13307 -uplayground -pplayground -N -e "SELECT count(*) FROM testdb.orders;"
+curl -s "http://127.0.0.1:18123/?query=SELECT%20count(*)%20FROM%20testdb.orders"
+
+# OpenLDAP (make up-all): expect a non-zero entry count
+ldapsearch -x -H ldap://127.0.0.1:13389 -b dc=example,dc=org \
+  -D cn=admin,dc=example,dc=org -w adminpw "(objectClass=*)" dn | grep -c "^dn:"
+```
+
 ## Seed data
 
 Every SQL engine is seeded with the same canonical schema —
