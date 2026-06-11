@@ -1,0 +1,9 @@
+# Local environment (ports + credentials) — never commit
+.env
+
+# Docker bind-mount/volume scratch
+.volumes/
+
+# OS / editor noise
+.DS_Store
+*.log
