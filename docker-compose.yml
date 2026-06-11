@@ -41,7 +41,7 @@ services:
       - ./seeds/mysql:/docker-entrypoint-initdb.d:ro
       - mysql_data:/var/lib/mysql
     healthcheck:
-      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-uroot", "-p${DB_ROOT_PASSWORD}"]
+      test: ["CMD-SHELL", "MYSQL_PWD=${DB_ROOT_PASSWORD} mysqladmin ping -h localhost -uroot --silent"]
       interval: 5s
       timeout: 5s
       retries: 20
@@ -86,6 +86,7 @@ services:
       - ./seeds/clickhouse:/docker-entrypoint-initdb.d:ro
       - clickhouse_data:/var/lib/clickhouse
     healthcheck:
+      # 127.0.0.1 (not localhost) avoids IPv6 loopback issues on Alpine
       test: ["CMD", "wget", "--spider", "-q", "http://127.0.0.1:8123/ping"]
       interval: 5s
       timeout: 5s
@@ -109,15 +110,16 @@ services:
       - ldap_data:/var/lib/ldap
       - ldap_config:/etc/ldap/slapd.d
     healthcheck:
-      test: ["CMD-SHELL", "ldapsearch -x -H ldap://localhost -b dc=example,dc=org -D cn=admin,dc=example,dc=org -w ${LDAP_ADMIN_PASSWORD} >/dev/null 2>&1 || exit 1"]
+      test: ["CMD-SHELL", "BASE=dc=$$(echo $$LDAP_DOMAIN | sed 's/\\./,dc=/g'); ldapsearch -x -H ldap://localhost -b \"$$BASE\" -D \"cn=admin,$$BASE\" -w \"$$LDAP_ADMIN_PASSWORD\" >/dev/null 2>&1 || exit 1"]
       interval: 10s
       timeout: 5s
       retries: 10
+      start_period: 30s
 
 # ---------------------------------------------------------------------------
 # Oracle (NOT enabled): Oracle Database Free is free to use but x86_64-only
 # (slow under emulation on Apple Silicon) and multi-GB. To experiment, add a
-# matching ORACLE_PORT to .env and uncomment:
+# matching ORACLE_PORT to .env and uncomment (including the oracle_data volume below):
 #
 #   oracle:
 #     image: container-registry.oracle.com/database/free:latest
@@ -139,3 +141,4 @@ volumes:
   clickhouse_data:
   ldap_data:
   ldap_config:
+  # oracle_data:   # uncomment together with the commented oracle service above
