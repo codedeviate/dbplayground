@@ -131,6 +131,13 @@ persistence).
 > — it is a fully open-source, redis-compatible drop-in running on port
 > `16380`.
 
+## Using from an AI agent
+
+Want a coding agent to spin up dbplayground and run tests against it? Copy the
+contents of [AGENT.md](AGENT.md) into the agent — it's a self-contained guide
+covering the no-checkout GHCR start, ports, credentials, seed schema, and
+teardown.
+
 ## Oracle
 
 Oracle Database Free is free to use but is x86_64-only (slow under emulation on
