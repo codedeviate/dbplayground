@@ -1,4 +1,5 @@
 # dbplayground test directory entries under dc=example,dc=org
+# NOTE: userPassword values are cleartext (test fixture only) and slapd stores them unhashed.
 
 dn: ou=people,dc=example,dc=org
 objectClass: organizationalUnit

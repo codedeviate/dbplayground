@@ -103,6 +103,7 @@ later want pre-seeded images on Docker Hub or GHCR.
 
 - Docker Engine with Compose v2 (`docker compose`)
 - GNU Make
+- Image tags are pinned to a major (or major-minor) version and may pull newer patch releases on `docker compose pull`.
 
 ## License
 
