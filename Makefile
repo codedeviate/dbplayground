@@ -3,6 +3,14 @@
 
 COMPOSE := docker compose
 
+# Load .env so targets honour customised ports/credentials (silent if absent).
+-include .env
+export
+
+# Derive the LDAP base DN from LDAP_DOMAIN (example.org -> dc=example,dc=org).
+comma := ,
+LDAP_BASE_DN := dc=$(subst .,$(comma)dc=,$(LDAP_DOMAIN))
+
 .PHONY: help init up up-all down reset ps logs psql mysql maria click ldap-search
 
 help: ## Show this help
@@ -13,9 +21,11 @@ init: ## Create .env from .env.example if missing
 	@test -f .env && echo ".env already exists" || (cp .env.example .env && echo "created .env")
 
 up: ## Start default engines (pg, mysql, mariadb, clickhouse) and wait for healthy
+	@test -f .env || { echo "No .env found - run 'make init' first."; exit 1; }
 	$(COMPOSE) up -d --wait
 
 up-all: ## Start default engines + OpenLDAP (ldap profile)
+	@test -f .env || { echo "No .env found - run 'make init' first."; exit 1; }
 	$(COMPOSE) --profile ldap up -d --wait
 
 down: ## Stop and remove containers (keep data volumes)
@@ -31,17 +41,17 @@ logs: ## Follow logs for all services
 	$(COMPOSE) logs -f
 
 psql: ## Open a psql shell in the Postgres container
-	$(COMPOSE) exec postgres psql -U playground -d testdb
+	$(COMPOSE) exec postgres psql -U $(DB_USER) -d $(DB_NAME)
 
 mysql: ## Open a mysql shell in the MySQL container
-	$(COMPOSE) exec mysql mysql -uplayground -pplayground testdb
+	$(COMPOSE) exec mysql mysql -u$(DB_USER) -p$(DB_PASSWORD) $(DB_NAME)
 
 maria: ## Open a mariadb shell in the MariaDB container
-	$(COMPOSE) exec mariadb mariadb -uplayground -pplayground testdb
+	$(COMPOSE) exec mariadb mariadb -u$(DB_USER) -p$(DB_PASSWORD) $(DB_NAME)
 
 click: ## Open a clickhouse-client shell
-	$(COMPOSE) exec clickhouse clickhouse-client -d testdb
+	$(COMPOSE) exec clickhouse clickhouse-client -d $(CLICKHOUSE_DB)
 
 ldap-search: ## Run a sample ldapsearch against the seeded directory
 	$(COMPOSE) exec openldap ldapsearch -x -H ldap://localhost \
-		-b "dc=example,dc=org" -D "cn=admin,dc=example,dc=org" -w adminpw "(objectClass=*)"
+		-b "$(LDAP_BASE_DN)" -D "cn=admin,$(LDAP_BASE_DN)" -w $(LDAP_ADMIN_PASSWORD) "(objectClass=*)"
