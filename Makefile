@@ -11,7 +11,7 @@ export
 comma := ,
 LDAP_BASE_DN := dc=$(subst .,$(comma)dc=,$(LDAP_DOMAIN))
 
-.PHONY: help init up up-all down reset ps logs psql mysql maria click ldap-search redis
+.PHONY: help init up up-all down reset ps logs psql mysql maria click ldap-search redis valkey
 
 help: ## Show this help
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | \
@@ -20,15 +20,17 @@ help: ## Show this help
 init: ## Create .env from .env.example if missing
 	@test -f .env && echo ".env already exists" || (cp .env.example .env && echo "created .env")
 
-up: ## Start default engines (pg, mysql, mariadb, clickhouse, redis, memcached) and wait for healthy
+up: ## Start default engines (pg, mysql, mariadb, clickhouse, redis, valkey, memcached) and wait for healthy
 	@test -f .env || { echo "No .env found - run 'make init' first."; exit 1; }
 	$(COMPOSE) up -d --wait
 	$(COMPOSE) run --rm redis-seed
+	$(COMPOSE) run --rm valkey-seed
 
 up-all: ## Start default engines + OpenLDAP (ldap profile)
 	@test -f .env || { echo "No .env found - run 'make init' first."; exit 1; }
 	$(COMPOSE) --profile ldap up -d --wait
 	$(COMPOSE) run --rm redis-seed
+	$(COMPOSE) run --rm valkey-seed
 
 down: ## Stop and remove containers (keep data volumes)
 	$(COMPOSE) --profile ldap down
@@ -60,3 +62,6 @@ ldap-search: ## Run a sample ldapsearch against the seeded directory
 
 redis: ## Open a redis-cli shell in the Redis container
 	$(COMPOSE) exec redis redis-cli
+
+valkey: ## Open a valkey-cli shell in the Valkey container
+	$(COMPOSE) exec valkey valkey-cli

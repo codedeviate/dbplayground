@@ -121,6 +121,34 @@ services:
     entrypoint: ["sh", "-c", "redis-cli -h redis < /seed/01-seed.redis && echo 'redis seeded'"]
     restart: "no"
 
+  valkey:
+    image: valkey/valkey:8-alpine
+    container_name: dbp-valkey
+    restart: unless-stopped
+    ports:
+      - "${VALKEY_PORT}:6379"
+    volumes:
+      - valkey_data:/data
+    healthcheck:
+      test: ["CMD", "valkey-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  # One-shot seeder (reuses the Redis seed file — Valkey is redis-compatible).
+  # Behind the "seed" profile so --wait never waits on it; the Makefile runs it.
+  valkey-seed:
+    image: valkey/valkey:8-alpine
+    container_name: dbp-valkey-seed
+    profiles: ["seed"]
+    depends_on:
+      valkey:
+        condition: service_healthy
+    volumes:
+      - ./seeds/redis:/seed:ro
+    entrypoint: ["sh", "-c", "valkey-cli -h valkey < /seed/01-seed.redis && echo 'valkey seeded'"]
+    restart: "no"
+
   memcached:
     image: memcached:1.6-alpine
     container_name: dbp-memcached
@@ -178,6 +206,7 @@ volumes:
   mariadb_data:
   clickhouse_data:
   redis_data:
+  valkey_data:
   ldap_data:
   ldap_config:
   # oracle_data:   # uncomment together with the commented oracle service above
