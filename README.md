@@ -41,6 +41,8 @@ freely. Defaults sit in the `13000–19000` band to avoid collisions.
 | MySQL      | `mysql:8.4`                              | yes      | `13306`             | `testdb`   |
 | MariaDB    | `mariadb:11`                             | yes      | `13307`             | `testdb`   |
 | ClickHouse | `clickhouse/clickhouse-server:24-alpine` | yes      | `18123` / `19000`   | `testdb`   |
+| Redis      | `redis:7-alpine`                         | yes      | `16379`             | —          |
+| Memcached  | `memcached:1.6-alpine`                   | yes      | `13211`             | —          |
 | OpenLDAP   | `osixia/openldap:1.5.0`                  | profile  | `13389` / `16636`   | —          |
 
 Default credentials (override in `.env`): user `playground` / password
@@ -52,7 +54,7 @@ Default credentials (override in `.env`): user `playground` / password
 | Command          | What it does                                              |
 |------------------|----------------------------------------------------------|
 | `make init`      | Create `.env` from `.env.example` (if missing)           |
-| `make up`        | Start the four default engines, wait until healthy       |
+| `make up`        | Start the default engines, wait until healthy            |
 | `make up-all`    | Same, **plus** OpenLDAP (`ldap` profile)                 |
 | `make down`      | Stop & remove containers (keeps data volumes)            |
 | `make reset`     | Stop & remove containers **and** volumes (forces reseed) |
@@ -62,6 +64,7 @@ Default credentials (override in `.env`): user `playground` / password
 | `make mysql`     | `mysql` shell into MySQL                                 |
 | `make maria`     | `mariadb` shell into MariaDB                             |
 | `make click`     | `clickhouse-client` shell                                |
+| `make redis`     | `redis-cli` shell into Redis                             |
 | `make ldap-search` | Sample `ldapsearch` against the seeded directory       |
 
 ### Connecting from another tool
@@ -91,6 +94,10 @@ mysql   -h127.0.0.1 -P13306 -uplayground -pplayground -N -e "SELECT count(*) FRO
 mariadb -h127.0.0.1 -P13307 -uplayground -pplayground -N -e "SELECT count(*) FROM testdb.orders;"
 curl -s "http://127.0.0.1:18123/?query=SELECT%20count(*)%20FROM%20testdb.orders"
 
+redis-cli -h 127.0.0.1 -p 16379 ping                 # PONG
+redis-cli -h 127.0.0.1 -p 16379 get demo:greeting
+printf 'stats\r\nquit\r\n' | nc 127.0.0.1 13211 | head   # memcached stats
+
 # OpenLDAP (make up-all): expect a non-zero entry count
 ldapsearch -x -H ldap://127.0.0.1:13389 -b dc=example,dc=org \
   -D cn=admin,dc=example,dc=org -w adminpw "(objectClass=*)" dn | grep -c "^dn:"
@@ -104,6 +111,17 @@ query can be run against each engine and compared. OpenLDAP gets a small test
 directory (`ou=people` / `ou=groups` with users `alice`, `bob` and a `testers`
 group). Seed files live under `seeds/<engine>/` and run on first boot; use
 `make reset` to wipe volumes and reseed.
+
+Redis is seeded with a handful of demo keys (`demo:greeting`, `product:1`,
+`product:2`, `customer:1`, `customer:2`, `recent_orders`) automatically by
+`make up` — the seed is idempotent (it `DEL`s `recent_orders` before
+re-pushing, so running `make up` twice does not duplicate entries). Memcached
+starts empty (no persistence).
+
+> **License note:** Redis 7's 2024 license change (RSALv2 / SSPLv1) still
+> permits local testing and development use. If you need a fully open-source
+> drop-in, [Valkey](https://valkey.io) (BSD-3) is a compatible replacement —
+> swap the image to `valkey/valkey:7-alpine` with no other changes required.
 
 ## Oracle
 
