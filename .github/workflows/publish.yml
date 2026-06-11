@@ -20,7 +20,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        engine: [postgres, mysql, mariadb, clickhouse]
+        engine: [postgres, mysql, mariadb, clickhouse, openldap]
     steps:
       - uses: actions/checkout@v4
       - uses: docker/setup-qemu-action@v3
