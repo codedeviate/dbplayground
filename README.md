@@ -135,7 +135,8 @@ persistence).
 
 Want a coding agent to spin up dbplayground and run tests against it? Copy the
 contents of [AGENT.md](AGENT.md) into the agent — it's a self-contained guide
-covering the no-checkout GHCR start, ports, credentials, seed schema, and
+covering the no-checkout GHCR start (fully seeded, including Redis/Valkey demo
+keys and OpenLDAP test directory), ports, credentials, seed schema, and
 teardown.
 
 ## Oracle
@@ -147,8 +148,9 @@ uncomment `oracle` service (profile `oracle`) lives at the bottom of
 
 ## Publishing
 
-Pre-seeded images for the four SQL/OLAP engines are published to GHCR on every
-release and can be run without cloning this repo. See
+Pre-seeded images for all five engines (four SQL/OLAP + OpenLDAP) are published
+to GHCR on every release and can be run without cloning this repo. Redis and
+Valkey are seeded in-container at startup (no baked image needed). See
 [PUBLISHING.md](PUBLISHING.md) for the full details — what is published, how
 the tag-triggered multi-arch workflow works, and how to consume the images.
 

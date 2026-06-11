@@ -22,7 +22,7 @@ the fleet is ready. First run pulls images (public, multi-arch amd64/arm64);
 allow a minute or two. To also start OpenLDAP, add `--profile ldap`.
 
 Pin a version with `DBP_TAG` (default `latest`), e.g.
-`DBP_TAG=0.3.0 docker compose -f docker-compose.hub.yml up -d --wait`.
+`DBP_TAG=0.4.0 docker compose -f docker-compose.hub.yml up -d --wait`.
 Change any host port with the matching env var (see the table) if it collides.
 
 ## 2. Connect — host ports and credentials
@@ -36,10 +36,10 @@ Default SQL credentials: user `playground`, password `playground`, database
 | MySQL      | `13306`             | `playground` / `playground`, db `testdb` — seeded    |
 | MariaDB    | `13307`             | `playground` / `playground`, db `testdb` — seeded    |
 | ClickHouse | `18123` (HTTP), `19000` (native) | `playground` / `playground`, db `testdb` — seeded |
-| Redis      | `16379`             | no auth — empty in this (GHCR) variant                |
-| Valkey     | `16380`             | no auth — empty in this (GHCR) variant                |
+| Redis      | `16379`             | no auth — seeded (demo keys)                          |
+| Valkey     | `16380`             | no auth — seeded (demo keys)                          |
 | Memcached  | `13211`             | no auth — always empty (no persistence)               |
-| OpenLDAP   | `13389` (LDAP), `16636` (LDAPS) | profile `ldap`; admin `cn=admin,dc=example,dc=org` / `adminpw`, base `dc=example,dc=org` |
+| OpenLDAP   | `13389` (LDAP), `16636` (LDAPS) | profile `ldap`; admin `cn=admin,dc=example,dc=org` / `adminpw`, base `dc=example,dc=org` — seeded (users alice/bob, group testers) |
 
 Env vars to override ports: `PG_PORT`, `MYSQL_PORT`, `MARIADB_PORT`,
 `CLICKHOUSE_HTTP_PORT`, `CLICKHOUSE_NATIVE_PORT`, `REDIS_PORT`, `VALKEY_PORT`,
@@ -76,11 +76,12 @@ docker compose -f docker-compose.hub.yml --profile ldap down -v
 
 `-v` also removes the data volumes (full reset).
 
-## 5. Alternative: clone the repo for seeded Redis/Valkey/LDAP
+## 5. Alternative: clone the repo
 
-The GHCR fleet above leaves the key-value stores and LDAP empty. If your tests
-need seeded Redis/Valkey (demo keys) or a seeded LDAP directory (users
-`alice`/`bob`, group `testers`), clone the repo and use its Makefile instead:
+The GHCR fleet above is fully seeded — Redis/Valkey have the demo keys and
+OpenLDAP (when started with `--profile ldap`) has the test directory. If you
+prefer to build and run everything locally from source, clone the repo and use
+its Makefile instead:
 
 ```sh
 git clone https://github.com/codedeviate/dbplayground.git

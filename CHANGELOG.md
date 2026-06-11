@@ -7,6 +7,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.4.0] - 2026-06-11
+
+### Added
+- Hub/GHCR fleet now pre-seeds Redis and Valkey (in-container background
+  seeder + seed-aware healthcheck, no baked image) and ships a pre-seeded
+  `dbplayground-openldap` image, matching `make up` / `make up-all`.
+- `AGENT.md` agent quickstart (introduced on `main` after v0.3.0).
+
+### Changed
+- CI forces JS actions onto Node.js 24 (`FORCE_JAVASCRIPT_ACTIONS_TO_NODE24`).
+
+### Notes
+- Memcached remains empty (no persistence / no init mechanism).
+
 ## [0.3.0] - 2026-06-11
 
 ### Added
@@ -53,7 +67,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `README.md` with badges, port table, and usage; `DOCKERHUB.md` publishing
   exploration; MIT `LICENSE`.
 
-[Unreleased]: https://github.com/codedeviate/dbplayground/compare/v0.3.0...HEAD
+[Unreleased]: https://github.com/codedeviate/dbplayground/compare/v0.4.0...HEAD
+[0.4.0]: https://github.com/codedeviate/dbplayground/compare/v0.3.0...v0.4.0
 [0.3.0]: https://github.com/codedeviate/dbplayground/compare/v0.2.0...v0.3.0
 [0.2.0]: https://github.com/codedeviate/dbplayground/compare/v0.1.0...v0.2.0
 [0.1.0]: https://github.com/codedeviate/dbplayground/releases/tag/v0.1.0
