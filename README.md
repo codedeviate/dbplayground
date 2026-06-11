@@ -42,6 +42,7 @@ freely. Defaults sit in the `13000–19000` band to avoid collisions.
 | MariaDB    | `mariadb:11`                             | yes      | `13307`             | `testdb`   |
 | ClickHouse | `clickhouse/clickhouse-server:24-alpine` | yes      | `18123` / `19000`   | `testdb`   |
 | Redis      | `redis:7-alpine`                         | yes      | `16379`             | —          |
+| Valkey     | `valkey/valkey:8-alpine`                 | yes      | `16380`             | —          |
 | Memcached  | `memcached:1.6-alpine`                   | yes      | `13211`             | —          |
 | OpenLDAP   | `osixia/openldap:1.5.0`                  | profile  | `13389` / `16636`   | —          |
 
@@ -65,6 +66,7 @@ Default credentials (override in `.env`): user `playground` / password
 | `make maria`     | `mariadb` shell into MariaDB                             |
 | `make click`     | `clickhouse-client` shell                                |
 | `make redis`     | `redis-cli` shell into Redis                             |
+| `make valkey`    | `valkey-cli` shell into Valkey                           |
 | `make ldap-search` | Sample `ldapsearch` against the seeded directory       |
 
 ### Connecting from another tool
@@ -96,6 +98,8 @@ curl -s "http://127.0.0.1:18123/?query=SELECT%20count(*)%20FROM%20testdb.orders"
 
 redis-cli -h 127.0.0.1 -p 16379 ping                 # PONG
 redis-cli -h 127.0.0.1 -p 16379 get demo:greeting
+valkey-cli -h 127.0.0.1 -p 16380 ping                # PONG  (redis-cli also works)
+valkey-cli -h 127.0.0.1 -p 16380 get demo:greeting
 printf 'stats\r\nquit\r\n' | nc 127.0.0.1 13211 | head   # memcached stats
 
 # OpenLDAP (make up-all): expect a non-zero entry count
@@ -115,13 +119,17 @@ group). Seed files live under `seeds/<engine>/` and run on first boot; use
 Redis is seeded with a handful of demo keys (`demo:greeting`, `product:1`,
 `product:2`, `customer:1`, `customer:2`, `recent_orders`) automatically by
 `make up` — the seed is idempotent (it `DEL`s `recent_orders` before
-re-pushing, so running `make up` twice does not duplicate entries). Memcached
-starts empty (no persistence).
+re-pushing, so running `make up` twice does not duplicate entries). Valkey is
+a first-class default-on service and is seeded with the same demo keys using
+the shared seed file (`seeds/redis/01-seed.redis`) — it is redis-protocol
+compatible, so no separate seed file is needed. Memcached starts empty (no
+persistence).
 
 > **License note:** Redis 7's 2024 license change (RSALv2 / SSPLv1) still
-> permits local testing and development use. If you need a fully open-source
-> drop-in, [Valkey](https://valkey.io) (BSD-3) is a compatible replacement —
-> swap the image to `valkey/valkey:7-alpine` with no other changes required.
+> permits local testing and development use. [Valkey](https://valkey.io)
+> (BSD-3) is now included as a first-class default-on service alongside Redis
+> — it is a fully open-source, redis-compatible drop-in running on port
+> `16380`.
 
 ## Oracle
 
