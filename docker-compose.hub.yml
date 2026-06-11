@@ -1,9 +1,9 @@
 # dbplayground — run the fleet straight from GHCR, no repo checkout needed:
 #   docker compose -f docker-compose.hub.yml up
 # Override the image tag with DBP_TAG (defaults to latest), ports with *_PORT.
-# Note: the 4 SQL/OLAP engines are pre-seeded (baked images). Redis/Valkey/
-# Memcached/OpenLDAP are upstream images and start EMPTY here (connectivity
-# only) — clone the repo and use `make up` for the seeded KV/LDAP data.
+# Redis and Valkey are seeded in-container (demo keys); OpenLDAP uses a baked
+# GHCR image (pre-seeded test directory). Memcached starts empty — no
+# persistence mechanism exists for it.
 
 name: dbplayground
 
@@ -80,22 +80,48 @@ services:
     container_name: dbp-redis
     restart: unless-stopped
     ports: ["${REDIS_PORT:-16379}:6379"]
+    command:
+      - sh
+      - -c
+      - |
+        ( until redis-cli ping >/dev/null 2>&1; do sleep 0.2; done
+          redis-cli SET demo:greeting "hello from dbplayground"
+          redis-cli SET product:1 "Widget"
+          redis-cli SET product:2 "Gadget"
+          redis-cli HSET customer:1 name "Alice Andersson" email "alice@example.com" country "SE"
+          redis-cli HSET customer:2 name "Bob Bauer" email "bob@example.com" country "DE"
+          redis-cli DEL recent_orders
+          redis-cli RPUSH recent_orders 1 2 3 4 ) &
+        exec docker-entrypoint.sh redis-server
     healthcheck:
-      test: ["CMD", "redis-cli", "ping"]
+      test: ["CMD-SHELL", "[ \"$$(redis-cli exists demo:greeting)\" = \"1\" ]"]
       interval: 5s
       timeout: 5s
-      retries: 10
+      retries: 15
 
   valkey:
     image: valkey/valkey:8-alpine
     container_name: dbp-valkey
     restart: unless-stopped
     ports: ["${VALKEY_PORT:-16380}:6379"]
+    command:
+      - sh
+      - -c
+      - |
+        ( until valkey-cli ping >/dev/null 2>&1; do sleep 0.2; done
+          valkey-cli SET demo:greeting "hello from dbplayground"
+          valkey-cli SET product:1 "Widget"
+          valkey-cli SET product:2 "Gadget"
+          valkey-cli HSET customer:1 name "Alice Andersson" email "alice@example.com" country "SE"
+          valkey-cli HSET customer:2 name "Bob Bauer" email "bob@example.com" country "DE"
+          valkey-cli DEL recent_orders
+          valkey-cli RPUSH recent_orders 1 2 3 4 ) &
+        exec docker-entrypoint.sh valkey-server
     healthcheck:
-      test: ["CMD", "valkey-cli", "ping"]
+      test: ["CMD-SHELL", "[ \"$$(valkey-cli exists demo:greeting)\" = \"1\" ]"]
       interval: 5s
       timeout: 5s
-      retries: 10
+      retries: 15
 
   memcached:
     image: memcached:1.6-alpine
@@ -104,10 +130,11 @@ services:
     ports: ["${MEMCACHED_PORT:-13211}:11211"]
 
   openldap:
-    image: osixia/openldap:1.5.0
+    image: ghcr.io/codedeviate/dbplayground-openldap:${DBP_TAG:-latest}
     container_name: dbp-openldap
     profiles: ["ldap"]
     restart: unless-stopped
+    command: ["--copy-service"]
     environment:
       LDAP_ORGANISATION: ${LDAP_ORGANISATION:-dbplayground}
       LDAP_DOMAIN: ${LDAP_DOMAIN:-example.org}
