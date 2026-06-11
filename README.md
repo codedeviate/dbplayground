@@ -140,9 +140,10 @@ uncomment `oracle` service (profile `oracle`) lives at the bottom of
 
 ## Publishing
 
-This repo is just Compose + seed files using upstream official images, so there
-is little to publish. See [DOCKERHUB.md](DOCKERHUB.md) for the options if you
-later want pre-seeded images on Docker Hub or GHCR.
+Pre-seeded images for the four SQL/OLAP engines are published to GHCR on every
+release and can be run without cloning this repo. See
+[PUBLISHING.md](PUBLISHING.md) for the full details — what is published, how
+the tag-triggered multi-arch workflow works, and how to consume the images.
 
 ## Requirements
 

@@ -12,6 +12,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 - Valkey (`valkey/valkey:8-alpine`, default-on, seeded with the same demo keys
   as Redis via the shared seed file, BSD-3 redis-compatible).
+- GHCR publishing — per-engine pre-seeded images for Postgres/MySQL/MariaDB/
+  ClickHouse (`ghcr.io/codedeviate/dbplayground-<engine>`), a
+  `docker-compose.hub.yml` to run the fleet from the registry with no repo
+  checkout, and a tag-triggered multi-arch publish workflow.
+
+### Changed
+- `DOCKERHUB.md` rewritten as `PUBLISHING.md` (GHCR-first).
 
 ## [0.2.0] - 2026-06-11
 
