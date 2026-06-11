@@ -1,0 +1,104 @@
+name: smoke
+
+# Smoke-test the hub fleet on every push/PR. Builds the engine images locally
+# (tagged as the GHCR names docker-compose.hub.yml expects) so it exercises the
+# CURRENT code — Dockerfiles, hub compose, in-container Redis/Valkey seeding,
+# and the baked OpenLDAP image — not the already-published images.
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+
+jobs:
+  hub-compose:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Validate compose files
+        run: |
+          docker compose -f docker-compose.yml config --quiet
+          docker compose -f docker-compose.hub.yml config --quiet
+
+      - name: Build engine images (single-arch, tagged as the hub image names)
+        run: |
+          for e in postgres mysql mariadb clickhouse openldap; do
+            docker build -t "ghcr.io/codedeviate/dbplayground-$e:latest" -f "images/$e/Dockerfile" .
+          done
+
+      - name: Start the hub fleet (including the ldap profile)
+        run: docker compose -f docker-compose.hub.yml --profile ldap up -d --wait
+
+      - name: Status
+        if: always()
+        run: docker compose -f docker-compose.hub.yml ps
+
+      - name: Assert seed data and connectivity
+        run: |
+          fail=0
+          check() { # desc expected actual
+            if [ "$2" = "$3" ]; then
+              echo "ok: $1 ($3)"
+            else
+              echo "FAIL: $1 — expected [$2], got [$3]"; fail=1
+            fi
+          }
+
+          pg=$(docker compose -f docker-compose.hub.yml exec -T postgres \
+            psql -U playground -d testdb -tAc "SELECT count(*) FROM orders;" | tr -d '[:space:]')
+          check "postgres orders" 4 "$pg"
+
+          my=$(docker compose -f docker-compose.hub.yml exec -T mysql \
+            mysql -uplayground -pplayground -N -e "SELECT count(*) FROM testdb.orders;" 2>/dev/null | tr -d '[:space:]')
+          check "mysql orders" 4 "$my"
+
+          md=$(docker compose -f docker-compose.hub.yml exec -T mariadb \
+            mariadb -uplayground -pplayground -N -e "SELECT count(*) FROM testdb.orders;" 2>/dev/null | tr -d '[:space:]')
+          check "mariadb orders" 4 "$md"
+
+          ch=$(docker compose -f docker-compose.hub.yml exec -T clickhouse \
+            clickhouse-client -q "SELECT count(*) FROM testdb.orders;" | tr -d '[:space:]')
+          check "clickhouse orders" 4 "$ch"
+
+          rg=$(docker compose -f docker-compose.hub.yml exec -T redis \
+            redis-cli get demo:greeting | tr -d '\r\n')
+          check "redis demo:greeting" "hello from dbplayground" "$rg"
+
+          ro=$(docker compose -f docker-compose.hub.yml exec -T redis \
+            redis-cli lrange recent_orders 0 -1 | tr '\r\n' '  ' | tr -s ' ' | sed 's/ *$//')
+          check "redis recent_orders" "1 2 3 4" "$ro"
+
+          vg=$(docker compose -f docker-compose.hub.yml exec -T valkey \
+            valkey-cli get demo:greeting | tr -d '\r\n')
+          check "valkey demo:greeting" "hello from dbplayground" "$vg"
+
+          al=$(docker compose -f docker-compose.hub.yml exec -T openldap \
+            ldapsearch -x -H ldap://localhost -b dc=example,dc=org \
+            -D cn=admin,dc=example,dc=org -w adminpw "(uid=alice)" mail 2>/dev/null \
+            | awk -F': ' '/^mail:/{print $2}' | tr -d '[:space:]')
+          check "ldap alice mail" "alice@example.com" "$al"
+
+          # Memcached has no seed/persistence — just assert the published port accepts a connection.
+          if timeout 3 bash -c '</dev/tcp/127.0.0.1/13211' 2>/dev/null; then
+            echo "ok: memcached port 13211 reachable"
+          else
+            echo "FAIL: memcached port 13211 not reachable"; fail=1
+          fi
+
+          exit $fail
+
+      - name: Dump logs on failure
+        if: failure()
+        run: docker compose -f docker-compose.hub.yml --profile ldap logs
+
+      - name: Tear down
+        if: always()
+        run: docker compose -f docker-compose.hub.yml --profile ldap down -v

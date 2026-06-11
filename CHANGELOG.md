@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- CI smoke test (`.github/workflows/smoke.yml`): on every push/PR, builds the
+  engine images locally and brings up `docker-compose.hub.yml` (incl. the
+  `ldap` profile), asserting the seed data and connectivity for every service.
+
 ## [0.4.0] - 2026-06-11
 
 ### Added
