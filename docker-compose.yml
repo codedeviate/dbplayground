@@ -2,7 +2,7 @@
 # Default engines start with `docker compose up`. OpenLDAP is behind the
 # "ldap" profile. All host ports/credentials come from .env (see .env.example).
 # Oracle is intentionally NOT wired here — see the commented block at the end
-# and DOCKERHUB.md / README for the rationale.
+# and PUBLISHING.md / README for the rationale.
 
 name: dbplayground
 

@@ -13,6 +13,7 @@ jobs:
   images:
     runs-on: ubuntu-latest
     strategy:
+      fail-fast: false
       matrix:
         engine: [postgres, mysql, mariadb, clickhouse]
     steps:
