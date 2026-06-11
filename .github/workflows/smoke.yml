@@ -102,3 +102,88 @@ jobs:
       - name: Tear down
         if: always()
         run: docker compose -f docker-compose.hub.yml --profile ldap down -v
+
+  local-fleet:
+    # Exercises the local dev path: docker-compose.yml via `make up-all`
+    # (upstream images + bind-mounted seeds, Redis/Valkey seeded by the
+    # sidecars, OpenLDAP seeded from the bind-mounted LDIF). Complements the
+    # hub-compose job, which covers the baked-image path.
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Start the full local fleet (seeds Redis/Valkey + OpenLDAP)
+        run: |
+          make init
+          make up-all
+
+      - name: Status
+        if: always()
+        run: docker compose ps
+
+      - name: Assert seed data and connectivity
+        run: |
+          fail=0
+          check() { # desc expected actual
+            if [ "$2" = "$3" ]; then
+              echo "ok: $1 ($3)"
+            else
+              echo "FAIL: $1 — expected [$2], got [$3]"; fail=1
+            fi
+          }
+
+          pg=$(docker compose exec -T postgres \
+            psql -U playground -d testdb -tAc "SELECT count(*) FROM orders;" | tr -d '[:space:]')
+          check "postgres orders" 4 "$pg"
+
+          my=$(docker compose exec -T mysql \
+            mysql -uplayground -pplayground -N -e "SELECT count(*) FROM testdb.orders;" 2>/dev/null | tr -d '[:space:]')
+          check "mysql orders" 4 "$my"
+
+          md=$(docker compose exec -T mariadb \
+            mariadb -uplayground -pplayground -N -e "SELECT count(*) FROM testdb.orders;" 2>/dev/null | tr -d '[:space:]')
+          check "mariadb orders" 4 "$md"
+
+          ch=$(docker compose exec -T clickhouse \
+            clickhouse-client -q "SELECT count(*) FROM testdb.orders;" | tr -d '[:space:]')
+          check "clickhouse orders" 4 "$ch"
+
+          rg=$(docker compose exec -T redis \
+            redis-cli get demo:greeting | tr -d '\r\n')
+          check "redis demo:greeting" "hello from dbplayground" "$rg"
+
+          ro=$(docker compose exec -T redis \
+            redis-cli lrange recent_orders 0 -1 | tr '\r\n' '  ' | tr -s ' ' | sed 's/ *$//')
+          check "redis recent_orders" "1 2 3 4" "$ro"
+
+          vg=$(docker compose exec -T valkey \
+            valkey-cli get demo:greeting | tr -d '\r\n')
+          check "valkey demo:greeting" "hello from dbplayground" "$vg"
+
+          al=$(docker compose exec -T openldap \
+            ldapsearch -x -H ldap://localhost -b dc=example,dc=org \
+            -D cn=admin,dc=example,dc=org -w adminpw "(uid=alice)" mail 2>/dev/null \
+            | awk -F': ' '/^mail:/{print $2}' | tr -d '[:space:]')
+          check "ldap alice mail" "alice@example.com" "$al"
+
+          if timeout 3 bash -c '</dev/tcp/127.0.0.1/13211' 2>/dev/null; then
+            echo "ok: memcached port 13211 reachable"
+          else
+            echo "FAIL: memcached port 13211 not reachable"; fail=1
+          fi
+
+          # Idempotency: re-seeding via `make up` must not duplicate the list.
+          make up
+          ro2=$(docker compose exec -T redis \
+            redis-cli lrange recent_orders 0 -1 | tr '\r\n' '  ' | tr -s ' ' | sed 's/ *$//')
+          check "redis recent_orders after re-seed" "1 2 3 4" "$ro2"
+
+          exit $fail
+
+      - name: Dump logs on failure
+        if: failure()
+        run: docker compose --profile ldap logs
+
+      - name: Tear down
+        if: always()
+        run: make reset
