@@ -9,6 +9,11 @@ permissions:
   contents: read
   packages: write
 
+# Run all JavaScript actions on Node.js 24 (GitHub forces this from 2026-06-16;
+# opting in now silences the Node 20 deprecation warnings on checkout/docker/*).
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+
 jobs:
   images:
     runs-on: ubuntu-latest
